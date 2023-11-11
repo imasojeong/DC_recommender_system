@@ -1,5 +1,10 @@
+import time
+
 import scrapy
-from scrapy_splash import SplashRequest
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 
 class MovieSpider(scrapy.Spider):
@@ -7,48 +12,74 @@ class MovieSpider(scrapy.Spider):
     allowed_domains = ["kobis.or.kr"]
     start_urls = ["https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do"]
 
-    def start_requests(self):
-        for url in self.start_urls:
-            yield SplashRequest(url, self.parse, endpoint='render.html', args={'wait': 0.5})
+    def __init__(self, *args, **kwargs):
+        super(MovieSpider, self).__init__(*args, **kwargs)
+        self.driver = webdriver.Chrome()
 
     def parse(self, response):
-        movie_list = response.css('#content > div.rst_sch > table > tbody')
+        # 직접 URL 문자열 사용
+        url = "https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do"
+        self.driver.get(url)
 
-        # 테이블의 각 행에 대한 반복
+        # 페이지가 로딩될 때까지 잠시 대기
+        time.sleep(3)
+
+        # 검색 세부사항 더보기 버튼 클릭
+        more_btn = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.XPATH, '//*[@id="content"]/div[3]/div[2]/a[1]'))
+        )
+        more_btn.click()
+
+        # 제작 상태 모달창 클릭
+        production_status_checkbox = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="sPrdtStatStr"]'))
+        )
+        production_status_checkbox.click()
+
+        # 제작 상태가 '개봉'인 영화만 클릭
+        release_checkbox = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="mul_chk_det0"]'))
+        )
+        release_checkbox.click()
+
+        # 확인 버튼 클릭
+        confirm_btn = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="layerConfirmChk"]'))
+        )
+        confirm_btn.click()
+
+        # 조회 버튼 클릭
+        search_btn = WebDriverWait(self.driver, 10).until(
+            EC.element_to_be_clickable((By.XPATH, '//*[@id="searchForm"]/div[1]/div[5]/button[1]'))
+        )
+        search_btn.click()
+
+        # 테이블의 tbody 선택
+        # movie_list = response.css('#content > div.rst_sch > table > tbody')
+
         for i in range(1, 10):
-            relative_link = movie_list.css(f'tr:nth-child({i}) > td:nth-child(1) > span > a::attr(href)').get()
+            movie_detail_xpath = f'//*[@id="content"]/div[4]/table/tbody/tr[{i}]/td[1]/span/a'
 
-            # 상대 경로를 절대 경로로 변환
-            link = response.urljoin(relative_link)
+            movie_datail_link = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, movie_detail_xpath))
+            )
+            movie_datail_link.click()
 
-            script = f"""
-                function main(splash)
-                    splash:go('{link}')
-                    splash:wait(0.5)  -- Adjust the wait time as needed
+            title_xpath = '/html/body/div[3]/div[1]/div[1]/div/strong'
+            title = self.driver.find_element(By.XPATH, title_xpath).text
 
-                    -- Additional Lua script for handling the popup
-                    -- For example, click on an element to open the popup
+            synopsis_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[5]/p'
+            synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
 
-                    return {{
-                        html = splash:html(),
-                        url = splash:url(),
-                    }}
-                end
-            """
+            # 모달창 닫기
+            close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
+            self.driver.find_element(By.XPATH, close_btn).click()
 
-            yield SplashRequest(url=response.url, callback=self.parse_detail, endpoint='execute', args={'lua_source': script, 'wait': 0.5, 'timeout': 90})
-
-    def parse_detail(self, response):
-        title = response.css('div.ui-dialog-titlebar > div > div > strong::text').get()
-        synopsis = response.css('#ui-id-1 > div > div.item_tab.basic > div:nth-child(5) > p::text').get()
-
-        if title and synopsis:
-            item = {
+            # 가져온 정보를 yield하여 Scrapy 아이템으로 전달
+            yield {
                 'title': title.strip(),
-                'synopsis': synopsis.strip(),
+                'synopsis': synopsis.strip()
             }
 
-            print("title: " + title)
-            print("synopsis: " + synopsis)
-
-            yield item
+    def closed(self, reason):
+        self.driver.quit()

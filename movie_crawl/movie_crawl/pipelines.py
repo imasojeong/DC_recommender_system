@@ -1,14 +1,10 @@
-from scrapy.exporters import CsvItemExporter
-
-
-# pipelines.py
-
-from itemadapter import ItemAdapter
 import csv
+import codecs
+
 
 class CsvPipeline:
     def __init__(self):
-        self.file = open("output/movie.csv", 'w', newline='', encoding='utf-8')
+        self.file = codecs.open("output/movie.csv", 'w', encoding='utf-8-sig')
         self.writer = csv.writer(self.file)
         self.writer.writerow(['Title', 'Synopsis'])  # CSV 파일의 헤더
 
@@ -22,4 +18,3 @@ class CsvPipeline:
 
     def close_spider(self, spider):
         self.file.close()
-
