@@ -14,9 +14,11 @@ class MovieSpider(scrapy.Spider):
 
     def __init__(self, *args, **kwargs):
         super(MovieSpider, self).__init__(*args, **kwargs)
-        self.driver = webdriver.Chrome()
+        options = webdriver.ChromeOptions()
+        options.add_argument('--start-maximized')
+        self.driver = webdriver.Chrome(options=options)
 
-    def parse(self, response):
+    def parse(self, response, **kwargs):
         url = "https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do"
         self.driver.get(url)
 
@@ -24,49 +26,74 @@ class MovieSpider(scrapy.Spider):
         time.sleep(1)
 
         # 크롤링 전 필터링
-        def btn_click(btn_xpath):
+        def click_btn(xpath):
             btn = WebDriverWait(self.driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, btn_xpath))
+                EC.element_to_be_clickable((By.XPATH, xpath))
             )
             btn.click()
 
+        def load_item(xpath):
+            WebDriverWait(self.driver, 10).until(
+                EC.presence_of_all_elements_located((By.XPATH, xpath))
+            )
+
         # 검색 필터 '더보기' 버튼 클릭
-        btn_click('//*[@id="content"]/div[3]/div[2]/a[1]')
+        click_btn('//*[@id="content"]/div[3]/div[2]/a[1]')
 
         # 제작 상태 '개봉' 필터링
-        btn_click('//*[@id="sPrdtStatStr"]')
-        btn_click('//*[@id="mul_chk_det0"]')
-        btn_click('//*[@id="layerConfirmChk"]')
+        click_btn('//*[@id="sPrdtStatStr"]')
+        click_btn('//*[@id="mul_chk_det0"]')
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
 
         # 장르 제외 필터링
-        btn_click('//*[@id="sGenreStr"]')
-        btn_click('//*[@id="chkAllChkBox"]')
-
-        # 전체 선택한 후 장르 제외
-        btn_click('//*[@id="mul_chk_det18"]')
-        btn_click('//*[@id="layerConfirmChk"]')
+        click_btn('//*[@id="sGenreStr"]')
+        load_item('//*[@id="tblChk"]')
+        click_btn('//*[@id="chkAllChkBox"]')
+        time.sleep(1)
+        load_item('//*[@id="mul_chk_det18"]')
+        click_btn('//*[@id="mul_chk_det18"]')
+        time.sleep(1)
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
 
         # 국적1(한국) 선택
-        btn_click('// *[ @ id = "sNationStr"]')
-        btn_click('//*[@id="mul_chk_det2"]')
-        btn_click('//*[@id="layerConfirmChk"]')
+        click_btn('//*[@id="sNationStr"]')
+        load_item('//*[@id="tblChk"]')
+        time.sleep(1)
+        click_btn('//*[@id="mul_chk_det2"]')
+        time.sleep(1)
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
 
         # 국적2(한국) 선택
-        btn_click('// *[ @ id = "sRepNationStr"]')
-        btn_click('//*[@id="mul_chk_det2"]')
-        btn_click('//*[@id="layerConfirmChk"]')
+        click_btn('//*[@id ="sRepNationStr"]')
+        load_item('//*[@id="tblChk"]')
+        time.sleep(1)
+        click_btn('//*[@id="mul_chk_det2"]')
+        time.sleep(1)
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
 
         # 등급 필터링
-        btn_click('//*[@id="searchForm"]/div[2]/div[5]/div')
-        btn_click('//*[@id="mul_chk_det2"]')
-        btn_click('//*[@id="mul_chk_det3"]')
-        btn_click('//*[@id="mul_chk_det4"]')
-        btn_click('//*[@id="mul_chk_det5"]')
-        btn_click('//*[@id="layerConfirmChk"]')
+        click_btn('//*[@id="sGradeStr"]')
+        load_item('//*[@id="tblChk"]')
+        time.sleep(1)
+        click_btn('//*[@id="mul_chk_det2"]')
+        click_btn('//*[@id="mul_chk_det3"]')
+        click_btn('//*[@id="mul_chk_det4"]')
+        click_btn('//*[@id="mul_chk_det5"]')
+        time.sleep(1)
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
 
         # 영화 종류 필터링
-        btn_click('//*[@id="sNomal"]')
+        click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[2]')
+        click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[3]')
+        time.sleep(1)
 
+        # 필터링 후 검색
+        click_btn('//*[@id="searchForm"]/div[1]/div[5]/button[1]')
         time.sleep(1)
 
         # 크롤링 시작
