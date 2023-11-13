@@ -1,3 +1,4 @@
+import re
 import time
 import scrapy
 from selenium import webdriver
@@ -19,6 +20,7 @@ class MovieSpider(scrapy.Spider):
         self.driver = webdriver.Chrome(options=options)
 
     def parse(self, response, **kwargs):
+        global genre
         url = "https://www.kobis.or.kr/kobis/business/mast/mvie/searchMovieList.do"
         self.driver.get(url)
 
@@ -76,18 +78,6 @@ class MovieSpider(scrapy.Spider):
         click_btn('//*[@id="layerConfirmChk"]')
         time.sleep(1)
 
-        # 등급 필터링
-        # click_btn('//*[@id="sGradeStr"]')
-        # load_item('//*[@id="tblChk"]')
-        # time.sleep(1)
-        # click_btn('//*[@id="mul_chk_det2"]')
-        # click_btn('//*[@id="mul_chk_det3"]')
-        # click_btn('//*[@id="mul_chk_det4"]')
-        # click_btn('//*[@id="mul_chk_det5"]')
-        # time.sleep(1)
-        # click_btn('//*[@id="layerConfirmChk"]')
-        # time.sleep(1)
-
         # 영화 종류 필터링
         click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[2]')
         click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[3]')
@@ -99,47 +89,58 @@ class MovieSpider(scrapy.Spider):
 
         # 크롤링 시작
         # 페이지 순회
-        page_numbers = self.driver.find_elements(By.XPATH, '//*[@id="pagingForm"]/div/ul/li')
-        for num, row in enumerate(page_numbers, start=1):
-            page_number_xpath = f'//*[@id="pagingForm"]/div/ul/li[{num}]'
+        # page_numbers = self.driver.find_elements(By.XPATH, '//*[@id="pagingForm"]/div/ul/li')
+        # for num, row in enumerate(page_numbers, start=1):
+        #     page_number_xpath = f'//*[@id="pagingForm"]/div/ul/li[{num}]'
+        #
+        #     page_number_link = WebDriverWait(self.driver, 10).until(
+        #         EC.presence_of_element_located((By.XPATH, page_number_xpath))
+        #     )
+        #     page_number_link.click()
 
-            page_number_link = WebDriverWait(self.driver, 10).until(
-                EC.presence_of_element_located((By.XPATH, page_number_xpath))
+        # 페이지 로딩 대기
+        time.sleep(2)
+
+        # 각 페이지 테이블 내용 순회
+        movie_rows = self.driver.find_elements(By.XPATH, '//*[@id="content"]/div[4]/table/tbody/tr')
+        for idx, row in enumerate(movie_rows, start=1):
+            movie_detail_xpath = f'//*[@id="content"]/div[4]/table/tbody/tr[{idx}]/td[1]/span/a'
+
+            movie_detail_link = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, movie_detail_xpath))
             )
-            page_number_link.click()
+            movie_detail_link.click()
 
-            # 페이지 로딩 대기
-            time.sleep(2)
+            # 제목 가져오기
+            title_xpath = '/html/body/div[3]/div[1]/div[1]/div/strong'
+            title = self.driver.find_element(By.XPATH, title_xpath).text
 
-            # 각 페이지 테이블 내용 순회
-            movie_rows = self.driver.find_elements(By.XPATH, '//*[@id="content"]/div[4]/table/tbody/tr')
-            for idx, row in enumerate(movie_rows, start=1):
-                movie_detail_xpath = f'//*[@id="content"]/div[4]/table/tbody/tr[{idx}]/td[1]/span/a'
+            # 장르 가져오기
+            genre_info_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[2]/dl/dd[4]'
+            genre_info = self.driver.find_element(By.XPATH, genre_info_xpath).text
+            genre_pattern = re.compile(r'\|\s*[^|]+\s*\|\s*([^|]+)\s*\|')
+            match = genre_pattern.search(genre_info)
+            if match:
+                genre = match.group(1).strip()
 
-                movie_detail_link = WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.XPATH, movie_detail_xpath))
-                )
-                movie_detail_link.click()
+            # 시놉시스 가져오기
+            synopsis_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[5]/p'
+            try:
+                synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
+            except NoSuchElementException:
+                # 시놉시스가 없는 경우 빈 문자열로 설정
+                synopsis = ''
 
-                title_xpath = '/html/body/div[3]/div[1]/div[1]/div/strong'
-                title = self.driver.find_element(By.XPATH, title_xpath).text
+            # 모달창 닫기
+            close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
+            self.driver.find_element(By.XPATH, close_btn).click()
 
-                synopsis_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[5]/p'
-                try:
-                    synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
-                except NoSuchElementException:
-                    # 시놉시스가 없는 경우 빈 문자열로 설정
-                    synopsis = ''
-
-                # 모달창 닫기
-                close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
-                self.driver.find_element(By.XPATH, close_btn).click()
-
-                # 가져온 정보를 yield하여 Scrapy 아이템으로 전달
-                yield {
-                    'title': title.strip(),
-                    'synopsis': synopsis.strip()
-                }
+            # 가져온 정보를 yield하여 Scrapy 아이템으로 전달
+            yield {
+                'title': title.strip(),
+                'genre': genre.strip(),
+                'synopsis': synopsis.strip()
+            }
 
     def closed(self, reason):
         self.driver.quit()
