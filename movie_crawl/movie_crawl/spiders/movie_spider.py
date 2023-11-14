@@ -80,6 +80,29 @@ class MovieSpider(scrapy.Spider):
         click_btn('//*[@id="layerConfirmChk"]')
         time.sleep(1)
 
+        # 등급 필터링
+        click_btn('//*[@id="searchForm"]/div[2]/div[5]/div')
+        # 2006-10-29~현재
+        click_btn('//*[@id="mul_chk_det2"]')
+        click_btn('//*[@id="mul_chk_det3"]')
+        click_btn('//*[@id="mul_chk_det4"]')
+        click_btn('//*[@id="mul_chk_det5"]')
+        time.sleep(1)
+        # 2002-05-01~2006-10-28
+        click_btn('//*[@id="mul_chk_det10"]')
+        click_btn('//*[@id="mul_chk_det11"]')
+        click_btn('//*[@id="mul_chk_det12"]')
+        click_btn('//*[@id="mul_chk_det13"]')
+        time.sleep(1)
+        # 2002-05-01~2006-10-28
+        click_btn('//*[@id="mul_chk_det17"]')
+        click_btn('//*[@id="mul_chk_det18"]')
+        click_btn('//*[@id="mul_chk_det19"]')
+        click_btn('//*[@id="mul_chk_det20"]')
+        time.sleep(1)
+        click_btn('//*[@id="layerConfirmChk"]')
+        time.sleep(1)
+
         # 영화 종류 필터링
         click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[2]')
         click_btn('//*[@id="searchForm"]/div[2]/div[8]/div/label[3]')
@@ -113,10 +136,6 @@ class MovieSpider(scrapy.Spider):
                     )
                     movie_detail_link.click()
 
-                    # 제목 가져오기
-                    title_xpath = '/html/body/div[3]/div[1]/div[1]/div/strong'
-                    title = self.driver.find_element(By.XPATH, title_xpath).text
-
                     # 장르 가져오기
                     genre_info_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[2]/dl/dd[4]'
                     genre_info = self.driver.find_element(By.XPATH, genre_info_xpath).text
@@ -124,24 +143,35 @@ class MovieSpider(scrapy.Spider):
                     match = genre_pattern.search(genre_info)
                     genre = match.group(1).strip()
 
-                    # 시놉시스 가져오기
-                    synopsis_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[5]/p'
-                    try:
-                        synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
-                    except NoSuchElementException:
-                        # 시놉시스가 없는 경우 빈 문자열로 설정
-                        synopsis = ''
+                    if '성인물(에로)' in genre or '공연' in genre:
+                        # 모달창 닫기
+                        close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
+                        self.driver.find_element(By.XPATH, close_btn).click()
+                        continue
 
-                    # 모달창 닫기
-                    close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
-                    self.driver.find_element(By.XPATH, close_btn).click()
+                    else:
+                        # 제목 가져오기
+                        title_xpath = '/html/body/div[3]/div[1]/div[1]/div/strong'
+                        title = self.driver.find_element(By.XPATH, title_xpath).text
 
-                    # 가져온 정보를 yield하여 Scrapy 아이템으로 전달
-                    yield {
-                        'title': title.strip(),
-                        'genre': genre.strip(),
-                        'synopsis': synopsis.strip()
-                    }
+                        # 시놉시스 가져오기
+                        synopsis_xpath = '/html/body/div[3]/div[2]/div/div[1]/div[5]/p'
+                        try:
+                            synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
+                        except NoSuchElementException:
+                            # 시놉시스가 없는 경우 빈 문자열로 설정
+                            synopsis = ''
+
+                        # 모달창 닫기
+                        close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
+                        self.driver.find_element(By.XPATH, close_btn).click()
+
+                        # 가져온 정보를 yield하여 Scrapy 아이템으로 전달
+                        yield {
+                            'title': title.strip(),
+                            'genre': genre.strip(),
+                            'synopsis': synopsis.strip()
+                        }
 
             # 페이지 넘기기 버튼 클릭
             try:
