@@ -159,8 +159,10 @@ class MovieSpider(scrapy.Spider):
                         try:
                             synopsis = self.driver.find_element(By.XPATH, synopsis_xpath).text
                         except NoSuchElementException:
-                            # 시놉시스가 없는 경우 빈 문자열로 설정
-                            synopsis = ''
+                            # 시놉시스가 없는 경우 크롤링 제외(모달창 닫기)
+                            close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
+                            self.driver.find_element(By.XPATH, close_btn).click()
+                            continue
 
                         # 모달창 닫기
                         close_btn = '/html/body/div[3]/div[1]/div[1]/a[2]'
