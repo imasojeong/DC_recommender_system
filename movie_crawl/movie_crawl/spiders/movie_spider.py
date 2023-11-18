@@ -113,9 +113,6 @@ class MovieSpider(scrapy.Spider):
         time.sleep(1)
 
         # 크롤링 시작
-        for i in range(1, 20):
-            click_btn('//*[@id="pagingForm"]/div/a[3]')
-            time.sleep(1)
         # 페이지 순회
         while True:
             for page_number in range(1, 11):
